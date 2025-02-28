@@ -1,0 +1,51 @@
+; LispBM Script for VESC ESC (Full Duplex UART)
+; Reads temperature data from UART.
+
+(defun plot-data (graph-index x y) (progn
+  (plot-set-graph graph-index)
+  (plot-send-points x y)
+  (sleep 0.01)
+))
+
+(plot-init "Axis: Seconds" "Axis: IR temp sense")
+(plot-add-graph "IR temp over time")
+(plot-add-graph "Air temp over time")
+
+(def st-time (systime))
+(uart-start 115200)  ; Comm port already defined, only define the baudrate
+
+(define uart-buf (array-create 32)) ; Create a byte array to store received data
+
+(defun read-temp-thd ()
+  (loopwhile t
+    (progn
+      (bufclear uart-buf) ; Clear the buffer before reading
+      (def bytes-read (uart-read uart-buf 32)) ; Read up to 32 bytes from UART. Get number of bytes read.
+      (if (not-eq bytes-read 0)  ; Check if anything was received (important!)
+          (progn
+            (def temp-str (to-str uart-buf)) ; Convert the received data to a string
+            (if (not-eq (str-len temp-str) 0)
+                (progn ; Check if converted string is not empty
+                  (def cleaned-str (str-replace temp-str "\r\n"))  ; Remove carriage return and newline
+                  (def temp-val (str-to-f cleaned-str)) ; Convert string to float
+                  (if temp-val
+                    (progn
+                        (print "Temperature: " temp-val) ;Print the data
+                        (plot-data 0 (secs-since st-time) temp-val))
+                    (print "String received, parsing error")
+                    )
+                )
+                (print "Bytes received, but empty string")  ; Handle empty string
+
+            )
+          )
+          ;(print "No data received")  ; Handle the case where no data was received
+      )
+      (sleep 0.1)  ; Short delay to prevent overwhelming the UART
+    )
+  )
+)
+
+(spawn 200 read-temp-thd) ; Start the reading thread with a stack size of 200
+
+(print "UART temperature reader started.") ; Print a message to confirm startup
