@@ -1,0 +1,63 @@
+/******************************************************************************
+Development environment specifics:
+Arduino 1.6.5
+SparkFun IR Thermometer Evaluation Board - MLX90614
+******************************************************************************/
+
+#include <Wire.h> // I2C library, required for MLX90614
+#include <SparkFunMLX90614.h> //Click here to get the library: http://librarymanager/All#Qwiic_IR_Thermometer by SparkFun
+#include <SoftwareSerial.h>
+
+IRTherm therm; // Create an IRTherm object to interact with throughout
+
+// Define SoftwareSerial pins
+const int rxPin = 17;
+const int txPin = 16;
+
+// Setup a new SoftwareSerial object
+SoftwareSerial vescSerial (rxPin, txPin); // RX, TX
+
+void setup()
+{
+  Serial.begin(115200); // Initialize Serial to log output
+  vescSerial.begin(115200); // Initialize SoftwareSerial for VESC communication
+  delay(5000);
+  Wire.setSDA(0);
+  Wire.setSCL(1);
+  Wire.begin(); //Joing I2C bus
+
+  if (therm.begin() == false) { // Initialize thermal IR sensor
+    Serial.println("Qwiic IR thermometer did not acknowledge! Freezing!");
+    while (1);
+  }
+  Serial.println("Qwiic IR Thermometer did acknowledge.");
+
+  therm.setUnit(TEMP_C); // Set the library's units to Celsius
+  // Alternatively, TEMP_F can be replaced with TEMP_C for Celsius or
+  // TEMP_K for Kelvin.
+
+  pinMode(LED_BUILTIN, OUTPUT); // LED pin as output
+}
+
+float lastTemp = 0.0; // Store the last temperature reading
+bool firstReading = true; // Flag for the first reading
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  if (therm.read()) {
+    float currentTemp = therm.object();
+    Serial.print("Object: " + String(currentTemp, 2));
+    Serial.println("C");
+
+    // Send the temperature data over SoftwareSerial (UART)
+    vescSerial.println(String(currentTemp, 2)); // Convert float to string
+
+    lastTemp = currentTemp;
+    firstReading = false;
+    
+  }
+
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(250);
+}
