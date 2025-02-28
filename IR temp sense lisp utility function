@@ -1,0 +1,33 @@
+; LispBM Script for VESC ESC (Full Duplex UART)
+; Reads IR temperature data from UART.
+
+(defun plot-data (graph-index x y) (progn
+  (plot-set-graph graph-index)
+  (plot-send-points x y)
+  (sleep 0.01)
+))
+
+(plot-init "Axis: Seconds" "Axis: IR temp sense")
+(plot-add-graph "IR temp over time")
+
+(def st-time (systime))
+(uart-start 115200)  
+
+(def uart-buf (array-create 32)) 
+
+(defun read-temp-thd ()
+  (loopwhile t
+    (progn
+      (bufclear uart-buf) 
+      (def bytes-read (uart-read uart-buf 7)) 
+      (if (= bytes-read 7)  
+          (progn
+            (def temp-str (str-to-f (str-replace (to-str uart-buf) "\r\n")))  ; Remove carriage return and newline
+            (plot-data 0 (secs-since st-time) temp-str))
+          (print "String received, parsing error"))
+(sleep 0.05)  
+)))
+
+(spawn 200 read-temp-thd) 
+
+(print "UART temperature reader started.") 
